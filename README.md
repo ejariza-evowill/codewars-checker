@@ -12,3 +12,4 @@ python3 get_latest_challenges.py users.txt
 ```
 
 The script will output the most recent completed challenge for each user.
+It also fetches the display name of each user so the results are easier to read.
