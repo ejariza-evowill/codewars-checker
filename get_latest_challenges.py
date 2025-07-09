@@ -1,12 +1,15 @@
 import json
 import sys
+from datetime import datetime, timezone
 from urllib import request, error
 
-API_URL_TEMPLATE = "https://www.codewars.com/api/v1/users/{}/code-challenges/completed?page=0"
+API_URL_TEMPLATE = (
+    "https://www.codewars.com/api/v1/users/{}/code-challenges/completed?page=0"
+)
 
 
 def fetch_latest(username: str):
-    """Fetch the latest completed challenge for a Codewars user."""
+    """Return the latest Python challenge for a Codewars user."""
     url = API_URL_TEMPLATE.format(username)
     try:
         with request.urlopen(url) as resp:
@@ -21,22 +24,54 @@ def fetch_latest(username: str):
     if not data.get("data"):
         return None
 
-    # Data is assumed to be sorted by completion date descending.
-    return data["data"][0]
+    for challenge in data["data"]:
+        languages = [lang.lower() for lang in challenge.get("completedLanguages", [])]
+        if "python" in languages:
+            return challenge
+    return None
+
+
+def parse_date(date_str: str) -> datetime:
+    """Parse ISO 8601 dates from the API."""
+    return datetime.fromisoformat(date_str.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def colorize_date(dt: datetime) -> str:
+    """Return a colorized date string based on its age."""
+    now = datetime.now(timezone.utc)
+    delta = now - dt
+    if delta.total_seconds() > 48 * 3600:
+        color = "\033[31m"  # red
+    elif delta.total_seconds() > 24 * 3600:
+        color = "\033[33m"  # yellow
+    else:
+        color = "\033[32m"  # green
+    return f"{color}{dt.isoformat()}\033[0m"
 
 
 def main(path: str):
     with open(path, "r", encoding="utf-8") as f:
         usernames = [line.strip() for line in f if line.strip()]
 
+    results = []
     for user in usernames:
         latest = fetch_latest(user)
-        if latest:
-            name = latest.get("name") or latest.get("slug")
-            completed_at = latest.get("completedAt")
-            print(f"{user}: {name} ({completed_at})")
-        else:
-            print(f"{user}: No completed challenges found")
+        if not latest:
+            print(f"{user}: No completed Python challenges found")
+            continue
+        name = latest.get("name") or latest.get("slug")
+        date_str = latest.get("completedAt")
+        if not date_str:
+            print(f"{user}: {name} (missing completion date)")
+            continue
+        dt = parse_date(date_str)
+        results.append({"user": user, "name": name, "date": dt})
+
+    results.sort(key=lambda r: r["date"], reverse=True)
+
+    for item in results:
+        colored = colorize_date(item["date"])
+        print(f"{item['user']}: {item['name']} ({colored})")
 
 
 if __name__ == "__main__":
