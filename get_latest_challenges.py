@@ -46,7 +46,7 @@ def colorize_date(dt: datetime) -> str:
         color = "\033[33m"  # yellow
     else:
         color = "\033[32m"  # green
-    return f"{color}{dt.isoformat()}\033[0m"
+    return f"{color}{dt.strftime("%B %d, %Y, %I:%M:%S %p")}\033[0m"
 
 
 def main(path: str):
